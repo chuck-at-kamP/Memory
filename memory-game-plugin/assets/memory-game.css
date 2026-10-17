@@ -1,0 +1,13 @@
+.memory-game { font-family: sans-serif; max-width: 900px; margin: 0 auto; }
+.memory-game .mg-board { border-collapse: separate; border-spacing: 8px; margin: 0 auto; }
+.memory-game .mg-board td {
+	width: 70px; height: 70px; font-size: 40px; text-align: center;
+	background: #3b82f6; color: transparent; border-radius: 8px; cursor: pointer; user-select: none;
+}
+.memory-game .mg-board td.open { background: #fff; color: #000; border: 2px solid #3b82f6; cursor: default; }
+.memory-game .mg-board td.found { background: #bbf7d0; color: #000; border: 2px solid #16a34a; cursor: default; }
+.memory-game .mg-info, .memory-game .mg-message { text-align: center; margin: .5em 0; }
+.memory-game .mg-question { text-align: center; margin-top: 1em; }
+.memory-game .mg-question button { margin: 4px; padding: 8px 14px; cursor: pointer; }
+.memory-game .mg-stats table { border-collapse: collapse; width: 100%; margin-top: 1em; }
+.memory-game .mg-stats th, .memory-game .mg-stats td { border: 1px solid #999; padding: 6px 10px; text-align: left; }
