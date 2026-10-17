@@ -5,8 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Memory</title>
 <style>
-  body { font-family: sans-serif; text-align: center; }
-  table { border-collapse: separate; border-spacing: 8px; margin: 1em auto; }
+  body { font-family: sans-serif; margin: 0; padding: 20px; background: #f3f4f6; color: #111; }
+  h1 { text-align: center; margin-top: 0; }
+  .layout { display: grid; grid-template-columns: auto minmax(360px, 1fr); gap: 24px; align-items: start; max-width: 1400px; margin: 0 auto; }
+  .links, #statistik { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.15); padding: 16px; }
+  .links { display: flex; flex-direction: column; align-items: center; text-align: center; }
+  #statistik h2 { margin-top: 0; }
+  #brett { display: flex; flex-direction: column; align-items: center; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } #statistik { overflow-x: auto; } }
+  table { border-collapse: separate; border-spacing: 8px; margin: 0 auto; }
   #spielfeld td {
     width: 70px; height: 70px; font-size: 40px; text-align: center;
     background: #3b82f6; color: transparent; border-radius: 8px;
@@ -16,27 +23,30 @@
   #spielfeld td.found { background: #bbf7d0; color: #000; border: 2px solid #16a34a; cursor: default; }
   #meldung { width: 340px; min-height: 2.6em; padding: 6px; margin: 0 auto; border: 1px solid #999; border-radius: 4px; }
   #info { margin: 0.5em; font-weight: bold; }
-  #frage { margin: 1em auto; max-width: 420px; }
+  #frage { margin-top: 16px; max-width: 420px; min-height: 9em; }
   #frage button, #weiter { margin: 4px; padding: 8px 14px; font-size: 16px; cursor: pointer; }
   .richtig { background: #bbf7d0; }
   .falsch { background: #fecaca; }
-  #statistik table { border-collapse: collapse; margin: 1em auto; }
-  #statistik th, #statistik td { border: 1px solid #999; padding: 6px 10px; }
+  #statistik table { border-collapse: collapse; width: 100%; margin: 0; }
+  #statistik th, #statistik td { border: 1px solid #999; padding: 6px 10px; text-align: left; }
   #statistik tr.gesamt td { font-weight: bold; background: #eee; }
   #bewertung { font-size: 1.2em; font-weight: bold; margin: 1em; }
-  .hidden { display: none; }
 </style>
 </head>
 <body>
 <h1>Memory</h1>
-<div id="runde"></div>
-<div id="info">Zeit: 0 s | Versuche: 0</div>
-<div id="brett">
-  <table id="spielfeld"></table>
-  <div id="meldung">Meldung</div>
+<div class="layout">
+  <div class="links">
+    <div id="runde"></div>
+    <div id="info">Zeit: 0 s | Versuche: 0</div>
+    <div id="brett">
+      <table id="spielfeld"></table>
+      <div id="meldung">Meldung</div>
+    </div>
+    <div id="frage"></div>
+  </div>
+  <div id="statistik"></div>
 </div>
-<div id="frage" class="hidden"></div>
-<div id="statistik" class="hidden"></div>
 <p><button id="neu">Neue Serie</button></p>
 
 <script>
@@ -100,8 +110,7 @@ function anzeigeAktualisieren() {
 function neueSerie() {
   verbleibendeFragen = mischen([...SYMBOLE]);
   ergebnisse = [];
-  statistik.classList.add("hidden");
-  statistik.innerHTML = "";
+  statistikAnzeigen();
   neuesSpiel();
 }
 
@@ -117,9 +126,10 @@ function neuesSpiel() {
   dauerMs = null;
   meldung.textContent = "Meldung";
   runde.textContent = `Spiel ${ergebnisse.length + 1} von ${RUNDEN}`;
-  frageDiv.classList.add("hidden");
   frageDiv.innerHTML = "";
-  brett.classList.remove("hidden");
+  const hinweis = document.createElement("p");
+  hinweis.textContent = "Die Frage erscheint, sobald alle Paare gefunden sind.";
+  frageDiv.appendChild(hinweis);
   anzeigeAktualisieren();
   spielfeld.innerHTML = "";
   for (let r = 0; r < 4; r++) {
@@ -170,8 +180,6 @@ function klick(td) {
 
 function frageStellen() {
   const f = FAKTEN[aktuellesSymbol];
-  brett.classList.add("hidden");
-  frageDiv.classList.remove("hidden");
   frageDiv.innerHTML = "";
   const h = document.createElement("h2");
   h.textContent = f.frage;
@@ -198,25 +206,27 @@ function antwortGegeben(i, btn) {
   const p = document.createElement("p");
   p.textContent = ok ? "Richtig!" : `Falsch. Richtig wäre: ${f.antworten[f.richtig]}`;
   frageDiv.appendChild(p);
+  statistikAnzeigen();
   const weiter = document.createElement("button");
   weiter.id = "weiter";
-  const fertig = ergebnisse.length === RUNDEN;
-  weiter.textContent = fertig ? "Statistik anzeigen" : "Nächstes Spiel";
-  weiter.addEventListener("click", fertig ? statistikAnzeigen : neuesSpiel);
-  frageDiv.appendChild(weiter);
+  if (ergebnisse.length < RUNDEN) {
+    weiter.textContent = "Nächstes Spiel";
+    weiter.addEventListener("click", neuesSpiel);
+    frageDiv.appendChild(weiter);
+  }
 }
 
 function statistikAnzeigen() {
-  frageDiv.classList.add("hidden");
-  brett.classList.add("hidden");
-  runde.textContent = "Spielstatistik";
-  info.textContent = "";
   const gesamtMs = ergebnisse.reduce((s, e) => s + e.dauerMs, 0);
   const gesamtV = ergebnisse.reduce((s, e) => s + e.versuche, 0);
   const richtige = ergebnisse.filter(e => e.ok).length;
   const n = ergebnisse.length;
+  if (n === 0) {
+    statistik.innerHTML = "<h2>Spielstatistik</h2><p>Noch keine Runde abgeschlossen.</p>";
+    return;
+  }
 
-  let html = "<table><tr><th>Spiel</th><th>Spieldauer</th><th>Versuche</th><th>Frage</th><th>Gegebene Antwort</th><th>Ergebnis</th></tr>";
+  let html = "<h2>Spielstatistik</h2><table><tr><th>Spiel</th><th>Spieldauer</th><th>Versuche</th><th>Frage</th><th>Gegebene Antwort</th><th>Ergebnis</th></tr>";
   ergebnisse.forEach((e, i) => {
     html += `<tr><td>${i + 1}</td><td>${fmt(e.dauerMs)} s</td><td>${e.versuche}</td>` +
             `<td>${e.frage}</td><td>${e.antwort}</td><td>${e.ok ? "richtig" : "falsch"}</td></tr>`;
@@ -226,13 +236,16 @@ function statistikAnzeigen() {
   html += `<tr class="gesamt"><td>Mittel</td><td>${fmt(gesamtMs / n)} s</td><td>${(gesamtV / n).toFixed(1).replace(".", ",")}</td><td colspan="3"></td></tr>`;
   html += "</table>";
 
+  if (n < RUNDEN) {
+    statistik.innerHTML = html;
+    return;
+  }
   const sek = Math.round(gesamtMs / 1000);
   const text = richtige === n
     ? `Du hast alle Fragen richtig beantwortet, ${gesamtV} Versuche in ${sek} Sekunden für das Spiel benötigt. Damit hast du gewonnen!`
     : `Du hast ${richtige} von ${n} Fragen richtig beantwortet und ${gesamtV} Versuche in ${sek} Sekunden benötigt. Damit hast du leider nicht gewonnen – versuche es noch einmal!`;
   statistik.innerHTML = html + `<div id="bewertung"></div>`;
   statistik.querySelector("#bewertung").textContent = text;
-  statistik.classList.remove("hidden");
 }
 
 document.getElementById("neu").addEventListener("click", neueSerie);
