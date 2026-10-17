@@ -1,6 +1,14 @@
 # Memory
 Memory Spiel in Javascript
 
+## Möbelkisten-Memory (mk-memory.html)
+
+In Arbeit ist die Version "Möbelkisten-Memory".
+
+Für das soziale Kaufhaus "Möbelkiste Hamburg" soll das Memory Spiel vom Design
+und Inhalt angepasst werden. Die Fragetexte sollen sich auf Möbelkisten Inhalte
+beziehen. Es soll ein Memory Gewinnspiel für Wordpress entwickelt werden.
+
 ## Memory 1 (index1.html)
 
 Einfaches Memory Spiel.
