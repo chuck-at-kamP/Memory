@@ -9,22 +9,33 @@
   table { border-collapse: separate; border-spacing: 8px; margin: 1em auto; }
   td {
     width: 70px; height: 70px; font-size: 40px; text-align: center;
-    background: #3b82f6; color: transparent; border-radius: 8px;
+    background: orange; color: transparent; border-radius: 8px;
     cursor: pointer; user-select: none;
   }
   td.open { background: #fff; color: #000; border: 2px solid #3b82f6; cursor: default; }
   td.found { background: #bbf7d0; color: #000; border: 2px solid #16a34a; cursor: default; }
   #meldung { width: 300px; padding: 6px; text-align: center; }
+  p.anl { width:300px; text-indent:20px; text-align:justify; }
 </style>
 </head>
 <body>
 <!-- ################################################################# -->
 <h1>Möbelkisten-Memory</h1>
+<p class=anl><b>Spielanleitung</b> Das Möbelkisten-Memory zeigt nach jedem aufgedeckten Paar
+ein soziales Möbelkisten-Fact an. Merken Sie sich diese Facts. Wenn das Spiel erfolgreich
+beendet wurde, wird ein Möbelkisten-Fact abgefragt. Bei richtiger Antwort können Sie
+etwas gewinnen.
+</p>
 <table id="spielfeld"></table>
 <input type="text" id="meldung" readonly placeholder="Meldung">
 <p><button id="neu">Neues Spiel</button></p>
 
 <script>
+const FRAGEN = ["Wieviele BFD'ler arbeiten maximal bei der Möbelkiste?",
+	"Wieviele Ehrenamtliche arbeiten derzeit bei der Möbelkiste?",
+	"An welchem Wochentag findet die Tafelausgabe statt?",
+	"Wieviel qm Verkaufsfläche hat die Möbelkiste?",
+];
 const SYMBOLE = ["🍎", "🍌", "🍇", "🍒", "🐶", "🐱", "⭐", "🚗"];
 const spielfeld = document.getElementById("spielfeld");
 const meldung = document.getElementById("meldung");
