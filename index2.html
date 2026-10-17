@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory</title>
+<style>
+  body { font-family: sans-serif; text-align: center; }
+  table { border-collapse: separate; border-spacing: 8px; margin: 1em auto; }
+  #spielfeld td {
+    width: 70px; height: 70px; font-size: 40px; text-align: center;
+    background: #3b82f6; color: transparent; border-radius: 8px;
+    cursor: pointer; user-select: none;
+  }
+  #spielfeld td.open { background: #fff; color: #000; border: 2px solid #3b82f6; cursor: default; }
+  #spielfeld td.found { background: #bbf7d0; color: #000; border: 2px solid #16a34a; cursor: default; }
+  #meldung { width: 340px; min-height: 2.6em; padding: 6px; margin: 0 auto; border: 1px solid #999; border-radius: 4px; }
+  #info { margin: 0.5em; font-weight: bold; }
+  #frage { margin: 1em auto; max-width: 420px; }
+  #frage button, #weiter { margin: 4px; padding: 8px 14px; font-size: 16px; cursor: pointer; }
+  .richtig { background: #bbf7d0; }
+  .falsch { background: #fecaca; }
+  #statistik table { border-collapse: collapse; margin: 1em auto; }
+  #statistik th, #statistik td { border: 1px solid #999; padding: 6px 10px; }
+  #statistik tr.gesamt td { font-weight: bold; background: #eee; }
+  #bewertung { font-size: 1.2em; font-weight: bold; margin: 1em; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<h1>Memory</h1>
+<div id="runde"></div>
+<div id="info">Zeit: 0 s | Versuche: 0</div>
+<div id="brett">
+  <table id="spielfeld"></table>
+  <div id="meldung">Meldung</div>
+</div>
+<div id="frage" class="hidden"></div>
+<div id="statistik" class="hidden"></div>
+<p><button id="neu">Neue Serie</button></p>
+
+<script>
+// Jedes Symbol gehört zu genau einem Fakt und genau einer Frage.
+const SYMBOLE = ["🍎", "🍌", "🍇", "🍒", "🐶", "🐱", "⭐", "🚗"];
+const FAKTEN = {
+  "🍎": { text: "Weltweit gibt es über 7.500 verschiedene Apfelsorten.",
+          frage: "Wie viele Apfelsorten gibt es weltweit?",
+          antworten: ["Etwa 750", "Über 7.500", "Über 75.000"], richtig: 1 },
+  "🍌": { text: "Bananen sind botanisch gesehen Beeren.",
+          frage: "Was sind Bananen botanisch gesehen?",
+          antworten: ["Nüsse", "Beeren", "Steinfrüchte"], richtig: 1 },
+  "🍇": { text: "Für eine Flasche Wein werden etwa 600 Weintrauben benötigt.",
+          frage: "Wie viele Weintrauben braucht man etwa für eine Flasche Wein?",
+          antworten: ["Etwa 60", "Etwa 600", "Etwa 6.000"], richtig: 1 },
+  "🍒": { text: "Kirschen gehören zum Steinobst.",
+          frage: "Zu welcher Obstart gehören Kirschen?",
+          antworten: ["Kernobst", "Beerenobst", "Steinobst"], richtig: 2 },
+  "🐶": { text: "Ein Hund hat etwa 300 Millionen Riechzellen, der Mensch nur etwa 6 Millionen.",
+          frage: "Wie viele Riechzellen hat ein Hund etwa?",
+          antworten: ["6 Millionen", "30 Millionen", "300 Millionen"], richtig: 2 },
+  "🐱": { text: "Katzen schlafen durchschnittlich 12 bis 16 Stunden am Tag.",
+          frage: "Wie lange schlafen Katzen durchschnittlich pro Tag?",
+          antworten: ["4 bis 6 Stunden", "12 bis 16 Stunden", "20 bis 22 Stunden"], richtig: 1 },
+  "⭐": { text: "Das Licht der Sonne braucht etwa 8 Minuten bis zur Erde.",
+          frage: "Wie lange braucht das Sonnenlicht bis zur Erde?",
+          antworten: ["Etwa 8 Sekunden", "Etwa 8 Minuten", "Etwa 8 Stunden"], richtig: 1 },
+  "🚗": { text: "Carl Benz erhielt 1886 das Patent für das erste Automobil.",
+          frage: "In welchem Jahr erhielt Carl Benz das Patent für das erste Automobil?",
+          antworten: ["1786", "1886", "1986"], richtig: 1 }
+};
+const RUNDEN = SYMBOLE.length; // 8 Spiele, jede Frage genau einmal
+
+const spielfeld = document.getElementById("spielfeld");
+const meldung = document.getElementById("meldung");
+const info = document.getElementById("info");
+const runde = document.getElementById("runde");
+const brett = document.getElementById("brett");
+const frageDiv = document.getElementById("frage");
+const statistik = document.getElementById("statistik");
+
+let karten, aufgedeckt, gefunden, gesperrt;
+let versuche, startZeit, dauerMs, timer;
+let verbleibendeFragen, aktuellesSymbol, ergebnisse;
+
+function mischen(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function fmt(ms) { return (ms / 1000).toFixed(1).replace(".", ","); }
+
+function anzeigeAktualisieren() {
+  const ms = startZeit ? (dauerMs ?? Date.now() - startZeit) : 0;
+  info.textContent = `Zeit: ${fmt(ms)} s | Versuche: ${versuche}`;
+}
+
+function neueSerie() {
+  verbleibendeFragen = mischen([...SYMBOLE]);
+  ergebnisse = [];
+  statistik.classList.add("hidden");
+  statistik.innerHTML = "";
+  neuesSpiel();
+}
+
+function neuesSpiel() {
+  clearInterval(timer);
+  aktuellesSymbol = verbleibendeFragen.pop(); // Frage dieser Runde, wiederholt sich nie
+  karten = mischen([...SYMBOLE, ...SYMBOLE]);
+  aufgedeckt = [];
+  gefunden = 0;
+  gesperrt = false;
+  versuche = 0;
+  startZeit = null;
+  dauerMs = null;
+  meldung.textContent = "Meldung";
+  runde.textContent = `Spiel ${ergebnisse.length + 1} von ${RUNDEN}`;
+  frageDiv.classList.add("hidden");
+  frageDiv.innerHTML = "";
+  brett.classList.remove("hidden");
+  anzeigeAktualisieren();
+  spielfeld.innerHTML = "";
+  for (let r = 0; r < 4; r++) {
+    const tr = spielfeld.insertRow();
+    for (let c = 0; c < 4; c++) {
+      const td = tr.insertCell();
+      td.dataset.index = r * 4 + c;
+      td.addEventListener("click", () => klick(td));
+    }
+  }
+}
+
+function klick(td) {
+  if (gesperrt || td.classList.contains("open") || td.classList.contains("found")) return;
+  if (!startZeit) {
+    startZeit = Date.now();
+    timer = setInterval(anzeigeAktualisieren, 200);
+  }
+  td.textContent = karten[td.dataset.index];
+  td.classList.add("open");
+  aufgedeckt.push(td);
+  if (aufgedeckt.length < 2) return;
+
+  const [a, b] = aufgedeckt;
+  aufgedeckt = [];
+  versuche++;
+  if (a.textContent === b.textContent) {
+    a.classList.replace("open", "found");
+    b.classList.replace("open", "found");
+    gefunden++;
+    meldung.textContent = FAKTEN[a.textContent].text;
+    if (gefunden === SYMBOLE.length) {
+      dauerMs = Date.now() - startZeit;
+      clearInterval(timer);
+      anzeigeAktualisieren();
+      setTimeout(frageStellen, 2500);
+    }
+  } else {
+    gesperrt = true;
+    meldung.textContent = "Leider kein Paar.";
+    setTimeout(() => {
+      [a, b].forEach(t => { t.classList.remove("open"); t.textContent = ""; });
+      gesperrt = false;
+    }, 1000);
+  }
+  anzeigeAktualisieren();
+}
+
+function frageStellen() {
+  const f = FAKTEN[aktuellesSymbol];
+  brett.classList.add("hidden");
+  frageDiv.classList.remove("hidden");
+  frageDiv.innerHTML = "";
+  const h = document.createElement("h2");
+  h.textContent = f.frage;
+  frageDiv.appendChild(h);
+  const reihenfolge = mischen(f.antworten.map((t, i) => i));
+  reihenfolge.forEach(i => {
+    const btn = document.createElement("button");
+    btn.textContent = f.antworten[i];
+    btn.addEventListener("click", () => antwortGegeben(i, btn));
+    frageDiv.appendChild(btn);
+  });
+}
+
+function antwortGegeben(i, btn) {
+  const f = FAKTEN[aktuellesSymbol];
+  const ok = i === f.richtig;
+  ergebnisse.push({ dauerMs, versuche, frage: f.frage, antwort: f.antworten[i],
+                    richtig: f.antworten[f.richtig], ok });
+  [...frageDiv.querySelectorAll("button")].forEach(b => {
+    b.disabled = true;
+    if (b.textContent === f.antworten[f.richtig]) b.classList.add("richtig");
+  });
+  if (!ok) btn.classList.add("falsch");
+  const p = document.createElement("p");
+  p.textContent = ok ? "Richtig!" : `Falsch. Richtig wäre: ${f.antworten[f.richtig]}`;
+  frageDiv.appendChild(p);
+  const weiter = document.createElement("button");
+  weiter.id = "weiter";
+  const fertig = ergebnisse.length === RUNDEN;
+  weiter.textContent = fertig ? "Statistik anzeigen" : "Nächstes Spiel";
+  weiter.addEventListener("click", fertig ? statistikAnzeigen : neuesSpiel);
+  frageDiv.appendChild(weiter);
+}
+
+function statistikAnzeigen() {
+  frageDiv.classList.add("hidden");
+  brett.classList.add("hidden");
+  runde.textContent = "Spielstatistik";
+  info.textContent = "";
+  const gesamtMs = ergebnisse.reduce((s, e) => s + e.dauerMs, 0);
+  const gesamtV = ergebnisse.reduce((s, e) => s + e.versuche, 0);
+  const richtige = ergebnisse.filter(e => e.ok).length;
+  const n = ergebnisse.length;
+
+  let html = "<table><tr><th>Spiel</th><th>Spieldauer</th><th>Versuche</th><th>Frage</th><th>Gegebene Antwort</th><th>Ergebnis</th></tr>";
+  ergebnisse.forEach((e, i) => {
+    html += `<tr><td>${i + 1}</td><td>${fmt(e.dauerMs)} s</td><td>${e.versuche}</td>` +
+            `<td>${e.frage}</td><td>${e.antwort}</td><td>${e.ok ? "richtig" : "falsch"}</td></tr>`;
+  });
+  html += `<tr class="gesamt"><td>Gesamt</td><td>${fmt(gesamtMs)} s</td><td>${gesamtV}</td>` +
+          `<td colspan="3">${richtige} von ${n} richtig</td></tr>`;
+  html += `<tr class="gesamt"><td>Mittel</td><td>${fmt(gesamtMs / n)} s</td><td>${(gesamtV / n).toFixed(1).replace(".", ",")}</td><td colspan="3"></td></tr>`;
+  html += "</table>";
+
+  const sek = Math.round(gesamtMs / 1000);
+  const text = richtige === n
+    ? `Du hast alle Fragen richtig beantwortet, ${gesamtV} Versuche in ${sek} Sekunden für das Spiel benötigt. Damit hast du gewonnen!`
+    : `Du hast ${richtige} von ${n} Fragen richtig beantwortet und ${gesamtV} Versuche in ${sek} Sekunden benötigt. Damit hast du leider nicht gewonnen – versuche es noch einmal!`;
+  statistik.innerHTML = html + `<div id="bewertung"></div>`;
+  statistik.querySelector("#bewertung").textContent = text;
+  statistik.classList.remove("hidden");
+}
+
+document.getElementById("neu").addEventListener("click", neueSerie);
+neueSerie();
+</script>
+</body>
+</html>

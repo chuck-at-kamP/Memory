@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory</title>
+<style>
+  body { font-family: sans-serif; text-align: center; }
+  table { border-collapse: separate; border-spacing: 8px; margin: 1em auto; }
+  td {
+    width: 70px; height: 70px; font-size: 40px; text-align: center;
+    background: #3b82f6; color: transparent; border-radius: 8px;
+    cursor: pointer; user-select: none;
+  }
+  td.open { background: #fff; color: #000; border: 2px solid #3b82f6; cursor: default; }
+  td.found { background: #bbf7d0; color: #000; border: 2px solid #16a34a; cursor: default; }
+  #meldung { width: 300px; padding: 6px; text-align: center; }
+</style>
+</head>
+<body>
+<h1>Memory</h1>
+<table id="spielfeld"></table>
+<input type="text" id="meldung" readonly placeholder="Meldung">
+<p><button id="neu">Neues Spiel</button></p>
+
+<script>
+const SYMBOLE = ["🍎", "🍌", "🍇", "🍒", "🐶", "🐱", "⭐", "🚗"];
+const spielfeld = document.getElementById("spielfeld");
+const meldung = document.getElementById("meldung");
+let karten, aufgedeckt, gefunden, gesperrt;
+
+function mischen(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function neuesSpiel() {
+  karten = mischen([...SYMBOLE, ...SYMBOLE]);
+  aufgedeckt = [];
+  gefunden = 0;
+  gesperrt = false;
+  meldung.value = "";
+  spielfeld.innerHTML = "";
+  for (let r = 0; r < 4; r++) {
+    const tr = spielfeld.insertRow();
+    for (let c = 0; c < 4; c++) {
+      const td = tr.insertCell();
+      td.dataset.index = r * 4 + c;
+      td.addEventListener("click", () => klick(td));
+    }
+  }
+}
+
+function klick(td) {
+  if (gesperrt || td.classList.contains("open") || td.classList.contains("found")) return;
+  td.textContent = karten[td.dataset.index];
+  td.classList.add("open");
+  aufgedeckt.push(td);
+  if (aufgedeckt.length < 2) return;
+
+  const [a, b] = aufgedeckt;
+  aufgedeckt = [];
+  if (a.textContent === b.textContent) {
+    a.classList.replace("open", "found");
+    b.classList.replace("open", "found");
+    gefunden++;
+    if (gefunden === SYMBOLE.length) {
+      meldung.value = "Glückwunsch! Alle 8 Paare gefunden!";
+    }
+  } else {
+    gesperrt = true;
+    setTimeout(() => {
+      [a, b].forEach(t => { t.classList.remove("open"); t.textContent = ""; });
+      gesperrt = false;
+    }, 1000);
+  }
+}
+
+document.getElementById("neu").addEventListener("click", neuesSpiel);
+neuesSpiel();
+</script>
+</body>
+</html>
